@@ -114,6 +114,12 @@ class VoiceConnection extends EventEmitter {
     this._speaking = new Map();
 
     /**
+     * The speaking timeouts
+     * @type {Map<Snowflake, Timeout>}
+     */
+    this._speakingTimeouts = new Map();
+
+    /**
      * Object that wraps contains the `ws` and `udp` sockets of this voice connection
      * @type {Object}
      * @private
@@ -472,11 +478,32 @@ class VoiceConnection extends EventEmitter {
    */
   onSpeaking({ user_id, ssrc, speaking }) {
     speaking = new Speaking(speaking).freeze();
+
+    const old = this._speaking.get(user_id);
+    const speakingTimeout = this._speakingTimeouts.get(user_id);
+
+    if (speakingTimeout) {
+      clearTimeout(speakingTimeout);
+    }
+
+    if (speaking.valueOf()) {
+      const newSpeakingTimeout = setTimeout(() => {
+        this.onSpeaking({ user_id, ssrc, speaking: 0 });
+      }, 250);
+
+      this._speakingTimeouts.set(user_id, newSpeakingTimeout);
+    }
+
+    if (speaking.equals(old)) {
+      return;
+    }
+
+    this.ssrcMap.set(ssrc, user_id);
+    this._speaking.set(user_id, speaking);
+
     const guild = this.channel.guild;
     const user = this.client.users.get(user_id);
-    this.ssrcMap.set(+ssrc, user_id);
-    const old = this._speaking.get(user_id);
-    this._speaking.set(user_id, speaking);
+
     /**
      * Emitted whenever a user changes speaking state.
      * @event VoiceConnection#speaking
@@ -490,7 +517,7 @@ class VoiceConnection extends EventEmitter {
       }
     }
 
-    if (guild && user && !speaking.equals(old)) {
+    if (guild && user) {
       const member = guild.member(user);
       if (member) {
         /**

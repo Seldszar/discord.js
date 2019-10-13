@@ -76,6 +76,7 @@ class PacketHandler extends EventEmitter {
     const ssrc = buffer.readUInt32BE(8);
     const user = this.userFromSSRC(ssrc);
     if (!user) return;
+    this.connection.onSpeaking({ ssrc, user_id: user.id, speaking: 1 });
     let stream = this.streams.get(user.id);
     if (!stream) return;
     stream = stream.stream;
