@@ -12,10 +12,17 @@ const { OPCodes, VoiceOPCodes, VoiceStatus, Events } = require('../../util/Const
 const Speaking = require('../../util/Speaking');
 const Util = require('../../util/Util');
 
+// Required amount of frames of silence for ensuring voice data interpolation
+// https://discordapp.com/developers/docs/topics/voice-connections#voice-data-interpolation
+const SILENCE_FRAMES = 5;
+
 // Workaround for Discord now requiring silence to be sent before being able to receive audio
 class SingleSilence extends Silence {
   _read() {
-    super._read();
+    for (let index = 0; index < SILENCE_FRAMES; index++) {
+      super._read();
+    }
+
     this.push(null);
   }
 }
